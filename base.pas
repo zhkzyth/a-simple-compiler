@@ -4,13 +4,13 @@ program Cradle;
 {--------------------------------------------------------------}
 { Constant Declarations }
 
-const TAB = ^I;
+conspt TAB = ^I;
 
 {--------------------------------------------------------------}
 { Variable Declarations }
 
 var Look: char;              { Lookahead Character }
-                              
+
 {--------------------------------------------------------------}
 { Read New Character From Input Stream }
 
@@ -64,7 +64,7 @@ function IsAlpha(c: char): boolean;
 begin
    IsAlpha := upcase(c) in ['A'..'Z'];
 end;
-                              
+
 
 {--------------------------------------------------------------}
 
@@ -127,9 +127,17 @@ end;
 {-------------------------------------------------------------}
 { Parse and Translate an Expression }
 
+procedure Expression;Forward;
+
 procedure Factor;
 begin
-   EmitLn('MOVE #' + GetNum + ',D0')
+   if Look = '(' then begin
+      Match('(');
+      Expression;
+      Match(')');
+      end
+   else
+      EmitLn('MOVE #' + GetNum + ',D0')
 end;
 
 {-------------------------------------------------------------}
@@ -162,7 +170,7 @@ begin
    Factor;
    while Look in ['*','/'] do begin
       EmitLn('MOVE D0,-(SP)');
-      case Look of 
+      case Look of
          '*': Multiply;
          '/': Divide;
       else Expected('Mulop');
@@ -190,11 +198,16 @@ procedure Subtract;
 begin
    Match('-');
    Term;
-   {EmitLn('SUB D1,D0');}
-   {EmitLn('NEG D0');}
    EmitLn('SUB (SP)+, D0');
 end;
 
+{---------------------------------------------------------------}
+{ Recognize an Addop }
+
+function IsAddop(c: char):boolean;
+begin
+   IsAddop := c in ['+', '-'];
+end;
 
 {---------------------------------------------------------------}
 { Parse and Translate an Expression }
@@ -202,8 +215,11 @@ end;
 {version 2}
 procedure   Expression;
 begin
-   Term;
-   while Look in ['+', '-'] do begin
+   if IsAddop(Look) then
+      EmitLn('CLR D0')
+   else
+      Term;
+   while IsAddop(Look) do begin
       EmitLn('MOVE D0,-(SP)');
       case Look of
          '+': Add;
