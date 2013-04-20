@@ -48,6 +48,16 @@ begin
 end;
 
 {--------------------------------------------------------------}
+{ Match a Specific Input Character }
+
+procedure Match(x: char);
+begin
+   if Look = x then GetChar
+   else Expected('''' + x + '''');
+end;
+
+
+{--------------------------------------------------------------}
 { Recognize an Alpha Character }
 
 function IsAlpha(c: char): boolean;
@@ -57,6 +67,7 @@ end;
 
 
 {--------------------------------------------------------------}
+
 { Recognize a Decimal Digit }
 
 function IsDigit(c: char): boolean;
@@ -64,83 +75,26 @@ begin
    IsDigit := c in ['0'..'9'];
 end;
 
-{--------------------------------------------------------------}
-{ Recognize a Alphanumeric }
-
-function IsAlNum(c:char): boolean;
-begin
-   IsAlNum := IsAlpha(c) or IsDigit(c);
-end;
-
-{---------------------------------------------------------------}
-{ Recognize an Addop }
-
-function IsAddop(c: char):boolean;
-begin
-   IsAddop := c in ['+', '-'];
-end;
-
-
-{---------------------------------------------------------------}
-{ Recognize White Space }
-
-function IsWhite(c: char):boolean;
-begin
-   IsWhite := c in [' ', TAB];
-end;
-
-
-{---------------------------------------------------------------}
-{ Skip Over White Space }
-
-procedure SkipWhite;
-begin
-   while Iswhite(Look) do
-      GetChar;
-end;
-
-{--------------------------------------------------------------}
-{ Match a Specific Input Character }
-
-procedure Match(x: char);
-begin
-   if Look <> x then Expected('''' + x + '''')
-   else begin
-      GetChar;
-      SkipWhite;
-   end;
-end;
 
 {--------------------------------------------------------------}
 { Get an Identifier }
 
-function GetName: string;
-var Token: string;
+function GetName: char;
 begin
-   Token := '';
    if not IsAlpha(Look) then Expected('Name');
-   while IsAlNum(Look) do begin
-      Token := Token + UpCase(Look);
-      GetChar;
-   end;
-   GetName := Token;
-   SkipWhite;
+   GetName := UpCase(Look);
+   GetChar;
 end;
+
 
 {--------------------------------------------------------------}
 { Get a Number }
 
-function GetNum: string;
-var Token : string ;
+function GetNum: char;
 begin
-   Token := '';
    if not IsDigit(Look) then Expected('Integer');
-   while IsDigit(Look) do begin
-      Token := Token + Look;
-      GetChar;
-   end;
-   GetNum := Token;
-   SkipWhite;
+   GetNum := Look;
+   GetChar;
 end;
 
 
@@ -168,13 +122,12 @@ end;
 procedure Init;
 begin
    GetChar;
-   SkipWhite;
 end;
 
 {-------------------------------------------------------------}
 { Parse and Translate an Identifier }
 procedure Ident;
-var Name: string;
+var Name: char;
 begin
    Name := GetName;
    if Look = '(' then begin
@@ -199,6 +152,7 @@ begin
       Match(')');
       end
    else if IsAlpha(Look) then
+      { EmitLn('MOVE ' + GetName + '(PC),D0') }
       Ident
    else
       EmitLn('MOVE #' + GetNum + ',D0')
@@ -266,8 +220,17 @@ begin
 end;
 
 {---------------------------------------------------------------}
+{ Recognize an Addop }
+
+function IsAddop(c: char):boolean;
+begin
+   IsAddop := c in ['+', '-'];
+end;
+
+{---------------------------------------------------------------}
 { Parse and Translate an Expression }
 
+{version 2}
 procedure   Expression;
 begin
    if IsAddop(Look) then
@@ -289,7 +252,7 @@ end;
 { Parse and Translate an Assignment Statement }
 
 procedure Assigment;
-var Name: string;
+var Name: char;
 begin
    Name:= GetName;
    Match('=');
@@ -304,8 +267,8 @@ end;
 
 begin
    Init;
-   Expression;
-   { Assigment; }
+   { Expression; }
+   Assigment;
    if Look <> CR then Expected('Newline');
 end.
 {--------------------------------------------------------------}
