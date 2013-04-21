@@ -152,7 +152,6 @@ begin
       Match(')');
       end
    else if IsAlpha(Look) then
-      { EmitLn('MOVE ' + GetName + '(PC),D0') }
       Ident
    else
       EmitLn('MOVE #' + GetNum + ',D0')
@@ -205,7 +204,6 @@ procedure Add;
 begin
    Match('+');
    Term;
-   {EmitLn('ADD D1,D0');}
    EmitLn('ADD (SP)+, D0');
 end;
 
@@ -230,7 +228,6 @@ end;
 {---------------------------------------------------------------}
 { Parse and Translate an Expression }
 
-{version 2}
 procedure   Expression;
 begin
    if IsAddop(Look) then
@@ -242,7 +239,6 @@ begin
       case Look of
          '+': Add;
          '-': Subtract;
-      { else Expected('Addop'); }
    end;
 end;
 end;

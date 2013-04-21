@@ -6,6 +6,7 @@ program Cradle;
 { Constant Declarations }
 
 const TAB = ^I;
+   CR     = ^M;
 
 {--------------------------------------------------------------}
 { Variable Declarations }
@@ -167,11 +168,20 @@ begin
 end;
 
 {--------------------------------------------------------------}
+{ Recognize and Translate an Expression }
+{ This version is a dummy }
+
+procedure Expression;
+begin
+   EmitLn('<expr>');
+end;
+
+{--------------------------------------------------------------}
 { Recognize and Translate an IF Construct }
 
-procedure Block;Forward;
+procedure Block(L :string );Forward;
 
-procedure DoIf;
+procedure DoIf(L :string );
 var L1,L2 : string;
 begin
    Match('i');
@@ -179,20 +189,20 @@ begin
    L1 := NewLabel;
    L2 := L1;
    EmitLn('BEQ ' + L1);
-   Block;
+   Block(L);
    if Look = 'l' then begin
       Match('l');
       L2 := NewLabel;
       EmitLn('BRA ' + L2);
       PostLabel(L1);
-      Block;
+      Block(L);
    end;
    Match('e');
    PostLabel(L2);
 end;
 
 {--------------------------------------------------------------}
-{ Recognize and Translate a While Block }
+{ Recognize and Translate a While Statement }
 
 procedure DoWhile;
 var L1,L2 : string;
@@ -203,7 +213,7 @@ begin
    PostLabel(L1);
    Condition;
    EmitLn('BEQ '+ L2);
-   Block;
+   Block(L2);
    Match('e');
    EmitLn('BRA '+ L1);
    PostLabel(L2);
@@ -211,30 +221,124 @@ end;
 
 
 {--------------------------------------------------------------}
-{ Recognize and Translate a LOOP Block }
+{ Recognize and Translate a LOOP Statement }
 
 procedure DoLoop;
-var L : string;
+var L1,L2 : string;
 begin
    Match('p');
-   L := NewLabel;
-   PostLabel(L);
-   Block;
+   L1 := NewLabel;
+   L2 := NewLabel;
+   PostLabel(L1);
+   Block(L2);
    Match('e');
-   EmitLn('BRA ' + L);
+   EmitLn('BRA ' + L1);
+   PostLabel(L2);
+end;
+
+
+{--------------------------------------------------------------}
+{ Recognize and Translate a REPEAT Statement }
+
+procedure DoRepeat;
+var L1,L2 : string;
+begin
+   Match('r');
+   L1 := NewLabel;
+   L2 := NewLabel;
+   PostLabel(L1);
+   Block(L2);
+   Match('u');
+   Condition;
+   EmitLn('BEQ ' + L1);
+   PostLabel(L2);
+end;
+
+
+{--------------------------------------------------------------}
+{ Recognize and Translate a DO Statement }
+
+procedure DoDo;
+var L1,L2 : string;
+begin
+   Match('d');
+   L1 := NewLabel;
+   L2 := NewLabel;
+   Expression;
+   EmitLn('SUBQ #1,D0');
+   PostLabel(L1);
+   EmitLn('MOVE D0,-(SP)');
+   Block(L2);
+   EmitLn('MOVE +(SP),D0');   { save the limit in stack}
+   EmitLn('DBRA D0,' + L1);
+   EmitLn('SUBQ #2,SP');
+   PostLabel(L2);
+   EmitLn('ADDQ #2,SP') {clear the statck after we break out}
+end;
+
+
+{--------------------------------------------------------------}
+{ Recognize and Translate a FOR Statement }
+
+procedure DoFor;
+var L1,L2 : string;
+   Name   : char;
+begin
+   Match('f');
+   L1 := NewLabel;
+   L2 := NewLabel;
+   { Step1: init loop counter value }
+   Name := GetName;
+   Match('=');
+   Expression;
+   EmitLn('SUBQ #1,D0');
+   EmitLn('LEA ' + Name + '(PC),A0');
+   EmitLn('MOVE D0,(A0)');
+   { Step2: set limit value }
+   Expression;
+   EmitLn('MOVE D0,-(SP)');   { save the limit in stack}
+
+   PostLabel(L1);
+   { the for loop}
+   { be cautious about the loop counter }
+   EmitLn('LEA ' + Name + '(PC),A0');
+   EmitLn('MOVE (A0),D0');
+   EmitLn('ADDQ #1,D0');
+   EmitLn('CMP (SP),D0');
+   EmitLn('BGT ' + L2); {BRANCH ON GREATER THAN}
+   Block(L2);
+   Match('e');
+   EmitLn('BRA ' + L1);
+   PostLabel(L2);
+   EmitLn('ADDQ #2,SP');
+end;
+
+{--------------------------------------------------------------}
+{ Recognize and Translate a BREAK }
+
+procedure DoBreak(L :string );
+begin
+   Match('b');
+   if L <> '' then
+      EmitLn('BRA ' + L )
+   else Abort('No loop to break from');
 end;
 
 
 {--------------------------------------------------------------}
 { Recognize and Translate a Statement Block }
 
-procedure Block;
+procedure Block(L :string );
 begin
-   while not( Look in ['e','l']) do begin
+   while not( Look in ['e','l','u']) do begin
       case Look of
-        'i' : DoIf;
+        'i' : DoIf(L);
         'w' : DoWhile;
         'p' : DoLoop;
+        'r' : DoRepeat;
+        'f' : DoFor;
+        'd' : DoDo;
+        'b' : DoBreak(L);
         else Other;
       end;
    end;
@@ -246,11 +350,10 @@ end;
 
 procedure DoProgram;
 begin
-   Block;
+   Block('');
    if Look <> 'e' then Expected('END');
    EmitLn('END')
 end;
-
 
 
 {--------------------------------------------------------------}
